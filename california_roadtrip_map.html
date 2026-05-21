@@ -1,0 +1,352 @@
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans); }
+  #app { display: flex; gap: 0; min-height: 580px; position: relative; }
+  #map-area { flex: 1; position: relative; min-width: 0; }
+  #map-area svg { width: 100%; height: 100%; display: block; }
+  .pin { cursor: pointer; transition: transform 0.2s; transform-origin: center bottom; }
+  .pin:hover { transform: scale(1.15); }
+  .pin.active .pin-circle { fill: #185FA5; }
+  .pin-circle { fill: #378ADD; transition: fill 0.2s; }
+  .pin-label { font-size: 11px; fill: var(--color-text-secondary); font-family: var(--font-sans); pointer-events: none; }
+
+  #panel { 
+    width: 0; overflow: hidden; 
+    transition: width 0.38s cubic-bezier(.4,0,.2,1);
+    background: var(--color-background-primary);
+    border-left: 0.5px solid var(--color-border-tertiary);
+    display: flex; flex-direction: column;
+    min-height: 580px;
+  }
+  #panel.open { width: 280px; }
+  #panel-inner { width: 280px; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+
+  .panel-eyebrow { 
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--color-text-info); font-weight: 500;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .panel-title { font-size: 18px; font-weight: 500; color: var(--color-text-primary); line-height: 1.25; }
+  .panel-subtitle { font-size: 13px; color: var(--color-text-secondary); }
+  .panel-body { font-size: 14px; color: var(--color-text-secondary); line-height: 1.6; }
+  .panel-divider { border: none; border-top: 0.5px solid var(--color-border-tertiary); }
+
+  .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag { 
+    font-size: 12px; padding: 3px 10px; border-radius: 20px;
+    background: var(--color-background-secondary); 
+    color: var(--color-text-secondary);
+    border: 0.5px solid var(--color-border-tertiary);
+  }
+  .tag.blue { background: #E6F1FB; color: #0C447C; border-color: #B5D4F4; }
+
+  #close-btn {
+    position: absolute; top: 10px; right: 10px;
+    background: none; border: none; cursor: pointer;
+    color: var(--color-text-secondary); font-size: 18px;
+    width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+  }
+  #close-btn:hover { background: var(--color-background-secondary); }
+
+  .van-group { transition: all 0.05s; }
+
+  .milestone-dot { width: 8px; height: 8px; border-radius: 50%; background: #378ADD; flex-shrink: 0; margin-top: 5px; }
+  .milestone { display: flex; gap: 10px; align-items: flex-start; }
+  .milestone-text { font-size: 13px; color: var(--color-text-secondary); line-height: 1.5; }
+  .milestone-text strong { color: var(--color-text-primary); font-weight: 500; }
+</style>
+
+<h2 class="sr-only">Interactive California road trip map. Click location pins to learn about each stop in the journey.</h2>
+
+<div id="app">
+  <div id="map-area">
+    <svg id="ca-svg" viewBox="0 0 340 580" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="road-arrow" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto">
+          <path d="M0,0 L4,2 L0,4 Z" fill="#378ADD" opacity="0.5"/>
+        </marker>
+      </defs>
+
+      <path id="ca-path" d="
+    M 80,22
+    L 245,22
+    L 248,72
+    L 256,118
+    L 268,168
+    L 282,220
+    L 300,274
+    L 320,332
+    L 340,388
+    L 326,420
+    L 300,442
+    L 262,448
+    L 232,438
+    L 206,420
+    L 178,398
+    L 156,370
+    L 138,340
+    L 120,298
+    L 108,250
+    L 98,198
+    L 92,152
+    L 88,104
+    L 82,58
+    Z"
+    fill="#E6F1FB"
+    stroke="#B5D4F4"
+    stroke-width="1.5"
+    stroke-linejoin="round"
+/>
+
+
+      <!-- Van (starts at Half Moon Bay) -->
+      <g id="van" transform="translate(145,160)">
+        <rect x="-18" y="-12" width="36" height="18" rx="3" fill="#d4d4d4"/>
+        <rect x="-12" y="-18" width="24" height="8" rx="2" fill="#c4c4c4"/>
+        <rect x="-10" y="-17" width="8" height="6" rx="1" fill="#85B7EB" opacity="0.85"/>
+        <rect x="1" y="-17" width="8" height="6" rx="1" fill="#85B7EB" opacity="0.85"/>
+        <rect x="-16" y="-7" width="32" height="3" fill="#378ADD"/>
+        <circle cx="-10" cy="7" r="4" fill="#2C2C2A"/>
+        <circle cx="-10" cy="7" r="2" fill="#888780"/>
+        <circle cx="10" cy="7" r="4" fill="#2C2C2A"/>
+        <circle cx="10" cy="7" r="2" fill="#888780"/>
+        <rect x="16" y="-9" width="4" height="4" rx="1" fill="#fef9c3" opacity="0.9"/>
+        <rect x="-20" y="-9" width="3" height="3" rx="1" fill="#fca5a5" opacity="0.8"/>
+      </g>
+
+      <!-- Location pins -->
+
+      <!-- Half Moon Bay: ~(163,142) -->
+      <g class="pin" id="pin-hmb" data-id="hmb" onclick="selectPin('hmb')" transform="translate(163,142)">
+        <line x1="0" y1="0" x2="0" y2="12" stroke="#378ADD" stroke-width="1.5"/>
+        <circle class="pin-circle" cx="0" cy="-8" r="8"/>
+        <text x="0" y="-5" text-anchor="middle" fill="white" font-size="9" font-weight="500" font-family="sans-serif">HMB</text>
+        <text class="pin-label" x="10" y="-6" text-anchor="start">Half Moon Bay</text>
+      </g>
+
+      <!-- Fremont: ~(195,118) -->
+      <g class="pin" id="pin-fre" data-id="fre" onclick="selectPin('fre')" transform="translate(195,118)">
+        <line x1="0" y1="0" x2="0" y2="12" stroke="#378ADD" stroke-width="1.5"/>
+        <circle class="pin-circle" cx="0" cy="-8" r="8"/>
+        <text x="0" y="-5" text-anchor="middle" fill="white" font-size="9" font-weight="500" font-family="sans-serif">FRE</text>
+        <text class="pin-label" x="10" y="-6" text-anchor="start">Fremont</text>
+      </g>
+
+      <!-- Foothill / CSU East Bay / SJSU — clustered near south bay ~(180,138) -->
+      <g class="pin" id="pin-edu" data-id="edu" onclick="selectPin('edu')" transform="translate(178,138)">
+        <line x1="0" y1="0" x2="0" y2="12" stroke="#1D9E75" stroke-width="1.5"/>
+        <circle class="pin-circle" cx="0" cy="-8" r="8" style="fill:#1D9E75"/>
+        <text x="0" y="-5" text-anchor="middle" fill="white" font-size="8" font-weight="500" font-family="sans-serif">EDU</text>
+        <text class="pin-label" x="10" y="-6" text-anchor="start">Bay Area Schools</text>
+      </g>
+
+      <!-- Berkeley: ~(185,108) -->
+      <g class="pin" id="pin-berk" data-id="berk" onclick="selectPin('berk')" transform="translate(185,108)">
+        <line x1="0" y1="0" x2="0" y2="12" stroke="#378ADD" stroke-width="1.5"/>
+        <circle class="pin-circle" cx="0" cy="-8" r="8"/>
+        <text x="0" y="-5" text-anchor="middle" fill="white" font-size="8" font-weight="500" font-family="sans-serif">BRK</text>
+        <text class="pin-label" x="-10" y="-6" text-anchor="end">Berkeley</text>
+      </g>
+
+      <!-- Santa Barbara: ~(132,320) -->
+      <g class="pin" id="pin-sb" data-id="sb" onclick="selectPin('sb')" transform="translate(132,320)">
+        <line x1="0" y1="0" x2="0" y2="12" stroke="#378ADD" stroke-width="1.5"/>
+        <circle class="pin-circle" cx="0" cy="-8" r="8"/>
+        <text x="0" y="-5" text-anchor="middle" fill="white" font-size="8" font-weight="500" font-family="sans-serif">SB</text>
+        <text class="pin-label" x="10" y="-6" text-anchor="start">Santa Barbara</text>
+      </g>
+
+      <!-- City labels for context -->
+      <text x="170" y="72" text-anchor="middle" font-size="9" fill="#888780" font-family="sans-serif" opacity="0.6">San Francisco</text>
+      <text x="200" y="180" text-anchor="middle" font-size="9" fill="#888780" font-family="sans-serif" opacity="0.6">San Jose</text>
+      <text x="140" y="420" text-anchor="middle" font-size="9" fill="#888780" font-family="sans-serif" opacity="0.6">Los Angeles</text>
+      <text x="220" y="60" text-anchor="middle" font-size="9" fill="#888780" font-family="sans-serif" opacity="0.5">Sacramento</text>
+
+      <!-- Compass rose -->
+      <g transform="translate(290,40)">
+        <circle cx="0" cy="0" r="14" fill="var(--color-background-primary)" stroke="var(--color-border-tertiary)" stroke-width="0.5"/>
+        <text x="0" y="-4" text-anchor="middle" font-size="8" fill="var(--color-text-secondary)" font-family="sans-serif" font-weight="500">N</text>
+        <line x1="0" y1="-2" x2="0" y2="8" stroke="var(--color-border-secondary)" stroke-width="0.5"/>
+      </g>
+
+      <!-- Scale bar -->
+      <g transform="translate(28,558)">
+        <line x1="0" y1="0" x2="40" y2="0" stroke="var(--color-text-tertiary)" stroke-width="1"/>
+        <line x1="0" y1="-3" x2="0" y2="3" stroke="var(--color-text-tertiary)" stroke-width="1"/>
+        <line x1="40" y1="-3" x2="40" y2="3" stroke="var(--color-text-tertiary)" stroke-width="1"/>
+        <text x="20" y="-5" text-anchor="middle" font-size="8" fill="var(--color-text-tertiary)" font-family="sans-serif">~100 mi</text>
+      </g>
+
+    </svg>
+  </div>
+
+  <!-- Side panel -->
+  <div id="panel">
+    <div id="panel-inner" style="position:relative;">
+      <button id="close-btn" onclick="closePanel()" aria-label="Close panel">
+        <i class="ti ti-x" aria-hidden="true"></i>
+      </button>
+      <div class="panel-eyebrow" id="p-eyebrow">
+        <i class="ti ti-map-pin" style="font-size:14px" aria-hidden="true"></i>
+        <span id="p-region">California</span>
+      </div>
+      <div>
+        <div class="panel-title" id="p-title">Stop</div>
+        <div class="panel-subtitle" id="p-subtitle" style="margin-top:4px;"></div>
+      </div>
+      <hr class="panel-divider"/>
+      <div class="panel-body" id="p-body"></div>
+      <div class="tag-row" id="p-tags"></div>
+      <hr class="panel-divider"/>
+      <div style="display:flex; flex-direction:column; gap:10px;" id="p-milestones"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const LOCATIONS = {
+  hmb: {
+    label: 'Half Moon Bay, CA',
+    region: 'San Mateo Coast',
+    title: 'Half Moon Bay',
+    subtitle: '[Your chapter here — e.g. "Where the story starts"]',
+    body: 'Describe what this place means to your journey. Maybe it\'s where you grew up, where you found a sense of direction, or a place that shaped who you are. Replace this with your story.',
+    tags: ['[Year]', '[Role or context]', '[What you did here]'],
+    milestones: [
+      { label: '[Milestone 1]', desc: 'What happened here and why it mattered.' },
+      { label: '[Milestone 2]', desc: 'Another formative moment to share.' },
+    ],
+    color: '#blue',
+    pinCoords: { x: 163, y: 142 }
+  },
+  fre: {
+    label: 'Fremont, CA',
+    region: 'East Bay',
+    title: 'Fremont',
+    subtitle: '[Your chapter here — e.g. "Growing up in the East Bay"]',
+    body: 'Replace with your story about Fremont — your roots, community, first experiences. What did this city teach you about yourself and where you were headed?',
+    tags: ['[Year range]', '[Context]', '[Achievement]'],
+    milestones: [
+      { label: '[Milestone 1]', desc: 'What happened here and why it mattered.' },
+      { label: '[Milestone 2]', desc: 'Another formative moment to share.' },
+    ],
+    pinCoords: { x: 195, y: 118 }
+  },
+  edu: {
+    label: 'Bay Area Schools',
+    region: 'South Bay + East Bay',
+    title: 'The Academic Pit Stops',
+    subtitle: 'Foothill College · CSU East Bay · San Jose State',
+    body: 'Three campuses, one destination. This is where you fill in the academic chapter — what you studied, what clicked, who mentored you, and what doors opened as a result.',
+    tags: ['Foothill College', 'CSU East Bay', 'San José State', '[Degree/field]'],
+    milestones: [
+      { label: 'Foothill College', desc: '[What you studied, achieved, or discovered here.]' },
+      { label: 'CSU East Bay', desc: '[What you studied, achieved, or discovered here.]' },
+      { label: 'San José State', desc: '[What you studied, achieved, or discovered here.]' },
+    ],
+    pinCoords: { x: 178, y: 138 }
+  },
+  berk: {
+    label: 'Berkeley, CA',
+    region: 'East Bay',
+    title: 'Berkeley',
+    subtitle: '[Your chapter here — e.g. "Where big ideas got loud"]',
+    body: 'Berkeley could mean UC Berkeley, a job, a community, a turning point. Describe what this stop on the route meant — academically, professionally, or personally.',
+    tags: ['[Year]', '[Role or connection]', '[Impact]'],
+    milestones: [
+      { label: '[Milestone 1]', desc: 'What happened here and why it mattered.' },
+      { label: '[Milestone 2]', desc: 'Another formative moment to share.' },
+    ],
+    pinCoords: { x: 185, y: 108 }
+  },
+  sb: {
+    label: 'Santa Barbara, CA',
+    region: 'Central Coast',
+    title: 'Santa Barbara',
+    subtitle: '[Your chapter here — e.g. "Cruising into the next gear"]',
+    body: 'Maybe this is a job, a graduate program, a season of life. The Central Coast has a way of making everything feel more expansive. What did Santa Barbara open up for you?',
+    tags: ['[Year]', '[Role or program]', '[Achievement]'],
+    milestones: [
+      { label: '[Milestone 1]', desc: 'What happened here and why it mattered.' },
+      { label: '[Milestone 2]', desc: 'Another formative moment to share.' },
+    ],
+    pinCoords: { x: 132, y: 320 }
+  }
+};
+
+let activePin = null;
+let vanPos = { x: 163, y: 142 };
+let animFrame = null;
+
+function selectPin(id) {
+  if (activePin === id) { closePanel(); return; }
+
+  document.querySelectorAll('.pin').forEach(p => p.classList.remove('active'));
+  const pinEl = document.getElementById('pin-' + id);
+  if (pinEl) pinEl.classList.add('active');
+
+  activePin = id;
+  const loc = LOCATIONS[id];
+
+  document.getElementById('p-region').textContent = loc.region;
+  document.getElementById('p-title').textContent = loc.title;
+  document.getElementById('p-subtitle').textContent = loc.subtitle;
+  document.getElementById('p-body').textContent = loc.body;
+
+  const tagRow = document.getElementById('p-tags');
+  tagRow.innerHTML = '';
+  loc.tags.forEach(t => {
+    const span = document.createElement('span');
+    span.className = 'tag blue';
+    span.textContent = t;
+    tagRow.appendChild(span);
+  });
+
+  const ms = document.getElementById('p-milestones');
+  ms.innerHTML = '';
+  loc.milestones.forEach(m => {
+    ms.innerHTML += `
+      <div class="milestone">
+        <div class="milestone-dot"></div>
+        <div class="milestone-text"><strong>${m.label}</strong> — ${m.desc}</div>
+      </div>`;
+  });
+
+  document.getElementById('panel').classList.add('open');
+  driveVan(loc.pinCoords.x, loc.pinCoords.y);
+}
+
+function closePanel() {
+  document.getElementById('panel').classList.remove('open');
+  document.querySelectorAll('.pin').forEach(p => p.classList.remove('active'));
+  activePin = null;
+}
+
+function driveVan(tx, ty) {
+  if (animFrame) cancelAnimationFrame(animFrame);
+  const startX = vanPos.x, startY = vanPos.y;
+  const dist = Math.hypot(tx - startX, ty - startY);
+  const duration = Math.max(400, dist * 6);
+  const start = performance.now();
+
+  function step(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+    const cx = startX + (tx - startX) * ease;
+    const cy = startY + (ty - startY) * ease;
+    const van = document.getElementById('van');
+    const bob = Math.sin(now * 0.015) * 1.2;
+    const angle = Math.atan2(ty - startY, tx - startX) * 180 / Math.PI;
+    const flip = (tx < startX) ? ' scale(-1,1)' : '';
+    van.setAttribute('transform', `translate(${cx},${cy+bob})${flip}`);
+    if (t < 1) {
+      animFrame = requestAnimationFrame(step);
+    } else {
+      vanPos = { x: tx, y: ty };
+    }
+  }
+  animFrame = requestAnimationFrame(step);
+}
+</script>
