@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Scenic Route — [Your Name]</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky-dawn: #f4a46a;
+    --sky-mid: #87ceeb;
+    --sky-gold: #f7d98b;
+    --ocean-deep: #1a4a6b;
+    --ocean-mid: #2d7aaa;
+    --ocean-light: #5ba3cc;
+    --ocean-foam: #c8e8f5;
+    --sand: #e8d5a3;
+    --cliff: #8b7355;
+    --cliff-dark: #5c4a30;
+    --road: #4a4a4a;
+    --road-line: #f5e642;
+    --van-body: #d4d4d4;
+    --van-accent: #2563eb;
+    --text-dark: #1a1a2e;
+    --text-light: #f8f5ef;
+    --accent: #e85d26;
+    --accent2: #2563eb;
+    --card-bg: rgba(255,255,255,0.92);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #0d1b2a;
+    color: var(--text-dark);
+    overflow-x: hidden;
+  }
+
+  /* ── STICKY SCENE ── */
+  #scene-wrap {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    width: 100%;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  #scene-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* ── SCROLL DRIVER ── */
+  #scroll-driver {
+    position: relative;
+    z-index: 1;
+    /* each section is 100vh tall for scroll pacing */
+  }
+
+  .scroll-section {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 5vw;
+    pointer-events: none;
+  }
+
+  /* ── STORY CARDS ── */
+  .story-card {
+    background: var(--card-bg);
+    backdrop-filter: blur(12px);
+    border-radius: 16px;
+    padding: 2rem 2.4rem;
+    max-width: 400px;
+    width: 100%;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.6) inset;
+    border: 1px solid rgba(255,255,255,0.55);
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+    pointer-events: all;
+  }
+
+  .story-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .card-eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-eyebrow::before {
+    content: '';
+    display: inline-block;
+    width: 24px;
+    height: 2px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  .card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.65rem;
+    line-height: 1.2;
+    color: var(--text-dark);
+    margin-bottom: 0.9rem;
+  }
+
+  .card-title em {
+    color: var(--accent2);
+    font-style: italic;
+  }
+
+  .card-body {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: #3a3a3a;
+    margin-bottom: 1.2rem;
+  }
+
+  .card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: #eef2ff;
+    color: #3730a3;
+    border: 1px solid #c7d2fe;
+  }
+
+  .tag.accent {
+    background: #fff3ee;
+    color: #c2410c;
+    border-color: #fed7aa;
+  }
+
+  .odometer {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ── INTRO OVERLAY ── */
+  #intro {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #0d1b2a;
+    transition: opacity 1s ease, visibility 1s ease;
+  }
+
+  #intro.gone { opacity: 0; visibility: hidden; pointer-events: none; }
+
+  #intro h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2.5rem, 7vw, 5rem);
+    color: #f8f5ef;
+    text-align: center;
+    line-height: 1.1;
+    margin-bottom: 1rem;
+  }
+
+  #intro h1 em {
+    color: var(--sky-dawn);
+    font-style: italic;
+  }
+
+  #intro p {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1.05rem;
+    color: rgba(248,245,239,0.6);
+    text-align: center;
+    margin-bottom: 2.5rem;
+    max-width: 380px;
+    line-height: 1.6;
+  }
+
+  #start-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: none;
+    border: 1px solid rgba(248,245,239,0.4);
+    color: #f8f5ef;
+    padding: 14px 32px;
+    border-radius: 40px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  #start-btn:hover {
+    background: rgba(248,245,239,0.1);
+    border-color: var(--sky-dawn);
+    color: var(--sky-dawn);
+  }
+
+  .scroll-hint {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.5s;
+    pointer-events: none;
+  }
+
+  .scroll-hint.show { opacity: 1; }
+
+  .scroll-hint span {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase;
+  }
+
+  .scroll-arrow {
+    width: 20px;
+    height: 30px;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 10px;
+    position: relative;
+  }
+
+  .scroll-arrow::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3px;
+    height: 8px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 2px;
+    animation: scrolldot 1.5s ease infinite;
+  }
+
+  @keyframes scrolldot {
+    0% { top: 5px; opacity: 1; }
+    100% { top: 16px; opacity: 0; }
+  }
+
+  /* ── PROGRESS BAR ── */
+  #progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--sky-gold));
+    z-index: 50;
+    transition: width 0.1s linear;
+    width: 0%;
+  }
+
+  /* ── NAV DOTS ── */
+  #nav-dots {
+    position: fixed;
+    right: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 50;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+
+  #nav-dots.show { opacity: 1; }
+
+  .nav-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.3);
+    border: 1px solid rgba(255,255,255,0.5);
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+  }
+
+  .nav-dot.active {
+    background: var(--sky-gold);
+    border-color: var(--sky-gold);
+    transform: scale(1.3);
+  }
+
+  .nav-dot::after {
+    content: attr(data-label);
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    white-space: nowrap;
+    color: rgba(255,255,255,0.7);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+
+  .nav-dot:hover::after { opacity: 1; }
+
+  /* ── FINAL SECTION ── */
+  #final-section {
+    position: relative;
+    z-index: 2;
+    background: #0d1b2a;
+    padding: 6rem 5vw;
+    text-align: center;
+  }
+
+  #final-section h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    color: var(--text-light);
+    margin-bottom: 1rem;
+  }
+
+  #final-section h2 em { color: var(--sky-gold); font-style: italic; }
+
+  #final-section p {
+    color: rgba(248,245,239,0.6);
+    max-width: 500px;
+    margin: 0 auto 2.5rem;
+    font-size: 1.05rem;
+    line-height: 1.7;
+  }
+
+  .cta-links {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .cta-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 14px 28px;
+    border-radius: 40px;
+    text-decoration: none;
+    transition: all 0.3s;
+    cursor: pointer;
+  }
+
+  .cta-btn.primary {
+    background: var(--accent);
+    color: white;
+    border: 1px solid var(--accent);
+  }
+
+  .cta-btn.primary:hover { background: #c94d1c; }
+
+  .cta-btn.secondary {
+    background: transparent;
+    color: rgba(248,245,239,0.8);
+    border: 1px solid rgba(248,245,239,0.3);
+  }
+
+  .cta-btn.secondary:hover { border-color: rgba(248,245,239,0.7); color: white; }
+
+  .footer-note {
+    margin-top: 4rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: rgba(248,245,239,0.25);
+    letter-spacing: 0.08em;
+  }
+</style>
+</head>
+<body>
+
+<!-- INTRO SCREEN -->
+<div id="intro">
+  <h1>Taking<br><em>the scenic route.</em></h1>
+  <p>A California road trip through the career and life of [Your Name] — buckle up, the Odyssey's gassed up.</p>
+  <button id="start-btn" onclick="startJourney()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    Hit the road
+  </button>
+</div>
+
+<!-- SCROLL HINT -->
+<div class="scroll-hint" id="scroll-hint">
+  <div class="scroll-arrow"></div>
+  <span>scroll</span>
+</div>
+
+<!-- PROGRESS -->
+<div id="progress-bar"></div>
+
+<!-- NAV DOTS -->
+<div id="nav-dots">
+  <div class="nav-dot active" data-label="Starting line" data-index="0" onclick="jumpTo(0)"></div>
+  <div class="nav-dot" data-label="Stop 1 · [Your stop]" data-index="1" onclick="jumpTo(1)"></div>
+  <div class="nav-dot" data-label="Stop 2 · [Your stop]" data-index="2" onclick="jumpTo(2)"></div>
+  <div class="nav-dot" data-label="Stop 3 · [Your stop]" data-index="3" onclick="jumpTo(3)"></div>
+  <div class="nav-dot" data-label="Stop 4 · [Your stop]" data-index="4" onclick="jumpTo(4)"></div>
+  <div class="nav-dot" data-label="Vista point" data-index="5" onclick="jumpTo(5)"></div>
+</div>
+
+<!-- STICKY SCENE -->
+<div id="scene-wrap">
+  <canvas id="scene-canvas"></canvas>
+</div>
+
+<!-- SCROLL DRIVER -->
+<div id="scroll-driver">
+
+  <!-- Section 0: Title / Starting line -->
+  <div class="scroll-section" id="section-0" style="justify-content:center;">
+    <div class="story-card" id="card-0" style="max-width:480px; text-align:center;">
+      <div class="card-eyebrow" style="justify-content:center;">PCH Northbound · Mile 0</div>
+      <h2 class="card-title" style="font-size:2rem;">[Your Name]<br><em>is on the move.</em></h2>
+      <p class="card-body">Welcome to my corner of the internet. I believe the best journeys aren't always the fastest — they're the ones where you roll down the windows and take it all in. This is my scenic route.</p>
+      <div class="card-tags">
+        <span class="tag accent">[Your field / role]</span>
+        <span class="tag">[City, CA]</span>
+        <span class="tag">[A word that describes you]</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 1 -->
+  <div class="scroll-section" id="section-1">
+    <div class="story-card" id="card-1">
+      <div class="card-eyebrow">Stop 1 · [Location, CA]</div>
+      <h2 class="card-title">Where the<br><em>road began.</em></h2>
+      <p class="card-body">This is where you describe your origin story — hometown, early education, formative experience, the moment you knew which direction to drive. Make it specific. Make it yours.</p>
+      <div class="card-tags">
+        <span class="tag accent">[Year range]</span>
+        <span class="tag">[School / org]</span>
+        <span class="tag">[Achievement]</span>
+      </div>
+      <div class="odometer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        [Year] · [City, CA]
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 2 -->
+  <div class="scroll-section" id="section-2">
+    <div class="story-card" id="card-2">
+      <div class="card-eyebrow">Stop 2 · [Location, CA]</div>
+      <h2 class="card-title">Picking up<br><em>speed.</em></h2>
+      <p class="card-body">Maybe this is undergrad, a first job, a pivotal internship — the stretch where the music was loud and the coffee was free. Describe what you built, learned, or discovered here.</p>
+      <div class="card-tags">
+        <span class="tag accent">[Role / Degree]</span>
+        <span class="tag">[Institution / Company]</span>
+        <span class="tag">[Skill or highlight]</span>
+      </div>
+      <div class="odometer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        [Year] · [City, CA]
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 3 -->
+  <div class="scroll-section" id="section-3">
+    <div class="story-card" id="card-3">
+      <div class="card-eyebrow">Stop 3 · [Location, CA]</div>
+      <h2 class="card-title">The unexpected<br><em>detour.</em></h2>
+      <p class="card-body">Every road trip has one — the off-ramp you didn't plan for that ends up being the best part. A pivot, a new challenge, a project that redefined what you were capable of.</p>
+      <div class="card-tags">
+        <span class="tag accent">[Role / Project]</span>
+        <span class="tag">[Org / Context]</span>
+        <span class="tag">[Impact]</span>
+      </div>
+      <div class="odometer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        [Year] · [City, CA]
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 4 -->
+  <div class="scroll-section" id="section-4">
+    <div class="story-card" id="card-4">
+      <div class="card-eyebrow">Stop 4 · [Location, CA]</div>
+      <h2 class="card-title">Cruising at<br><em>altitude.</em></h2>
+      <p class="card-body">This is where things clicked — a senior role, a milestone project, a recognition that you'd been building toward something real. Describe the view from here.</p>
+      <div class="card-tags">
+        <span class="tag accent">[Current / Recent Role]</span>
+        <span class="tag">[Company]</span>
+        <span class="tag">[Achievement]</span>
+      </div>
+      <div class="odometer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        [Year]–Present · [City, CA]
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 5: Vista / outro -->
+  <div class="scroll-section" id="section-5" style="justify-content:center;">
+    <div class="story-card" id="card-5" style="max-width:460px; text-align:center;">
+      <div class="card-eyebrow" style="justify-content:center;">Vista Point · Still rolling</div>
+      <h2 class="card-title" style="font-size:1.8rem;">The road <em>continues.</em></h2>
+      <p class="card-body" style="font-size:0.9rem;">No destination in mind — just a good playlist, an open highway, and a lot more coastline to see. Let's talk about where the road goes next.</p>
+      <div class="card-tags" style="justify-content:center;">
+        <span class="tag">[Interest / focus area]</span>
+        <span class="tag">[Interest / focus area]</span>
+        <span class="tag accent">Open to opportunities</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- FINAL SECTION -->
+<div id="final-section">
+  <h2>Pull over &amp;<br><em>say hello.</em></h2>
+  <p>Whether you've got a collab in mind, a question, or just want to talk road trips — the passenger seat is always open.</p>
+  <div class="cta-links">
+    <a href="mailto:you@example.com" class="cta-btn primary">✉ Get in touch</a>
+    <a href="#" class="cta-btn secondary">LinkedIn ↗</a>
+    <a href="#" class="cta-btn secondary">Resume ↗</a>
+  </div>
+  <p class="footer-note">© [Your Name] · Built with too much coffee and not enough sleep · PCH forever</p>
+</div>
+
+<script>
+// ── CONFIG ──
+const SECTIONS = 6;
+const sections = Array.from({length: SECTIONS}, (_, i) => document.getElementById(`section-${i}`));
+const cards    = Array.from({length: SECTIONS}, (_, i) => document.getElementById(`card-${i}`));
+const navDots  = document.querySelectorAll('.nav-dot');
+
+let started = false;
+let progress = 0; // 0..1
+
+function startJourney() {
+  document.getElementById('intro').classList.add('gone');
+  document.getElementById('scroll-hint').classList.add('show');
+  document.getElementById('nav-dots').classList.add('show');
+  started = true;
+  window.scrollTo({top: 1, behavior: 'smooth'});
+}
+
+function jumpTo(i) {
+  const target = sections[i].getBoundingClientRect().top + window.scrollY;
+  window.scrollTo({top: target, behavior: 'smooth'});
+}
+
+// ── CANVAS SCENE ──
+const canvas = document.getElementById('scene-canvas');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Van position & animation
+let vanX = 0.15; // fraction of width
+let vanTargetX = 0.15;
+let vanBob = 0;
+let frameCount = 0;
+let lastTime = 0;
+
+// Scene elements
+const STOPS = [
+  { name: 'Starting line',   sky1: '#f4a46a', sky2: '#f7c98b', ocean: '#2d7aaa', label: 'Beginning' },
+  { name: 'Stop 1',          sky1: '#87ceeb', sky2: '#b8def5', ocean: '#1a6e9e', label: 'Stop 1' },
+  { name: 'Stop 2',          sky1: '#a8d8ea', sky2: '#d4eef7', ocean: '#1a5a8c', label: 'Stop 2' },
+  { name: 'Stop 3',          sky1: '#6fa8d6', sky2: '#a8ceea', ocean: '#164a78', label: 'Stop 3' },
+  { name: 'Stop 4',          sky1: '#f7a98b', sky2: '#fbd5b5', ocean: '#c0602a', label: 'Stop 4' },
+  { name: 'Vista',           sky1: '#ff7f50', sky2: '#ffb347', ocean: '#1a3050', label: 'Vista' },
+];
+
+function lerp(a, b, t) { return a + (b - a) * Math.clamp(t, 0, 1); }
+Math.clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+function lerpColor(c1, c2, t) {
+  const parse = c => {
+    const r = parseInt(c.slice(1,3),16), g = parseInt(c.slice(3,5),16), b = parseInt(c.slice(5,7),16);
+    return [r,g,b];
+  };
+  const toHex = v => Math.round(v).toString(16).padStart(2,'0');
+  const [r1,g1,b1] = parse(c1), [r2,g2,b2] = parse(c2);
+  return '#' + toHex(lerp(r1,r2,t)) + toHex(lerp(g1,g2,t)) + toHex(lerp(b1,b2,t));
+}
+
+function getSceneState() {
+  const sectionIdx = progress * (STOPS.length - 1);
+  const si = Math.floor(sectionIdx);
+  const t  = sectionIdx - si;
+  const a  = STOPS[Math.min(si, STOPS.length-1)];
+  const b  = STOPS[Math.min(si+1, STOPS.length-1)];
+  return {
+    sky1:  lerpColor(a.sky1,  b.sky1,  t),
+    sky2:  lerpColor(a.sky2,  b.sky2,  t),
+    ocean: lerpColor(a.ocean, b.ocean, t),
+    t: sectionIdx
+  };
+}
+
+function drawScene(timestamp) {
+  const dt = timestamp - lastTime;
+  lastTime = timestamp;
+  frameCount++;
+  
+  const W = canvas.width, H = canvas.height;
+  const scene = getSceneState();
+
+  // Sky gradient
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.55);
+  skyGrad.addColorStop(0, scene.sky1);
+  skyGrad.addColorStop(1, scene.sky2);
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Sun / glow
+  const sunY = H * lerp(0.12, 0.38, progress);
+  const sunX = W * lerp(0.72, 0.55, progress);
+  const sunR = 38 + Math.sin(frameCount * 0.02) * 2;
+  const glow = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, sunR * 3.5);
+  glow.addColorStop(0, 'rgba(255,240,180,0.55)');
+  glow.addColorStop(1, 'rgba(255,240,180,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(sunX, sunY, sunR * 3.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff9d4';
+  ctx.beginPath();
+  ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Distant ocean shimmer
+  const horizonY = H * 0.45;
+  const oceanGrad = ctx.createLinearGradient(0, horizonY, 0, H * 0.72);
+  oceanGrad.addColorStop(0, scene.ocean);
+  oceanGrad.addColorStop(1, lerpColor(scene.ocean, '#0d1b2a', 0.6));
+  ctx.fillStyle = oceanGrad;
+  ctx.fillRect(0, horizonY, W, H * 0.72 - horizonY);
+
+  // Ocean shimmer lines
+  ctx.save();
+  ctx.globalAlpha = 0.13;
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < 6; i++) {
+    const waveY = horizonY + 18 + i * 14 + Math.sin(frameCount * 0.04 + i) * 4;
+    const waveW = W * (0.4 + i * 0.08);
+    const startX = (W - waveW) / 2 + Math.sin(frameCount * 0.02 + i * 0.5) * 20;
+    ctx.beginPath();
+    ctx.moveTo(startX, waveY);
+    ctx.lineTo(startX + waveW, waveY);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Cliff / headland silhouette (far)
+  ctx.fillStyle = lerpColor('#9aa38a', '#7a8066', 0.5);
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.62);
+  ctx.bezierCurveTo(W * 0.1, H * 0.50, W * 0.2, H * 0.52, W * 0.35, H * 0.48);
+  ctx.bezierCurveTo(W * 0.45, H * 0.46, W * 0.55, H * 0.54, W, H * 0.55);
+  ctx.lineTo(W, H * 0.72);
+  ctx.lineTo(0, H * 0.72);
+  ctx.closePath();
+  ctx.fill();
+
+  // Cliff foreground
+  const cliffY = H * 0.72;
+  ctx.fillStyle = '#5c4a30';
+  ctx.beginPath();
+  ctx.moveTo(0, cliffY);
+  ctx.lineTo(W, cliffY);
+  ctx.lineTo(W, H * 0.78);
+  ctx.bezierCurveTo(W * 0.75, H * 0.79, W * 0.6, H * 0.76, W * 0.5, H * 0.77);
+  ctx.bezierCurveTo(W * 0.35, H * 0.78, W * 0.2, H * 0.81, 0, H * 0.80);
+  ctx.closePath();
+  ctx.fill();
+
+  // Road surface
+  const roadTop = H * 0.76;
+  const roadBot = H;
+  ctx.fillStyle = '#2e2e2e';
+  ctx.beginPath();
+  ctx.moveTo(W * 0.15, roadTop);
+  ctx.lineTo(W * 0.85, roadTop);
+  ctx.lineTo(W, roadBot);
+  ctx.lineTo(0, roadBot);
+  ctx.closePath();
+  ctx.fill();
+
+  // Road shoulder / edge
+  ctx.fillStyle = '#888070';
+  ctx.fillRect(0, roadTop - 6, W, 8);
+
+  // Center dashes
+  ctx.save();
+  ctx.strokeStyle = '#f5e642';
+  ctx.lineWidth = 4;
+  ctx.setLineDash([40, 30]);
+  ctx.lineDashOffset = -(frameCount * 3) % 70; // animated scroll
+  ctx.beginPath();
+  ctx.moveTo(W * 0.5, roadTop + 4);
+  ctx.lineTo(W * 0.5, H);
+  ctx.stroke();
+  ctx.restore();
+
+  // Guard rail
+  ctx.save();
+  ctx.strokeStyle = '#b0a898';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, roadTop - 2);
+  ctx.lineTo(W, roadTop - 2);
+  ctx.stroke();
+  // posts
+  ctx.strokeStyle = '#aaa';
+  ctx.lineWidth = 2;
+  for (let px = 0; px < W; px += 60) {
+    const offset = (frameCount * 2) % 60;
+    ctx.beginPath();
+    ctx.moveTo((px - offset + W) % W, roadTop - 18);
+    ctx.lineTo((px - offset + W) % W, roadTop - 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Vegetation silhouette
+  ctx.fillStyle = '#3d5a3e';
+  for (let tx = 0; tx < W + 80; tx += 80) {
+    const treeX = ((tx - frameCount * 1.5) % (W + 80) + W + 80) % (W + 80) - 80;
+    const treeH = 60 + Math.sin(tx * 0.7) * 20;
+    // cypress shape
+    ctx.beginPath();
+    ctx.ellipse(treeX, roadTop - treeH * 0.5, 10, treeH * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // ── HONDA ODYSSEY ──
+  vanBob = Math.sin(frameCount * 0.05) * 1.8;
+  vanTargetX = W * lerp(0.1, 0.7, progress);
+  vanX += (vanTargetX - vanX) * 0.04;
+
+  const vX = vanX;
+  const vY = roadTop - 8 + vanBob;
+  const vW = 140, vH = 60;
+
+  // Shadow
+  ctx.save();
+  ctx.globalAlpha = 0.18;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(vX + vW * 0.5, vY + vH - 2, vW * 0.45, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Body
+  ctx.fillStyle = '#d0d0d0';
+  ctx.beginPath();
+  ctx.roundRect(vX, vY + 18, vW, vH - 20, 6);
+  ctx.fill();
+
+  // Roof / cabin
+  ctx.fillStyle = '#c4c4c4';
+  ctx.beginPath();
+  ctx.moveTo(vX + 22, vY + 18);
+  ctx.lineTo(vX + 32, vY + 4);
+  ctx.lineTo(vX + vW - 10, vY + 4);
+  ctx.lineTo(vX + vW - 4, vY + 18);
+  ctx.closePath();
+  ctx.fill();
+
+  // Windows
+  ctx.fillStyle = 'rgba(135,206,235,0.75)';
+  // windshield
+  ctx.beginPath();
+  ctx.moveTo(vX + 28, vY + 17);
+  ctx.lineTo(vX + 36, vY + 7);
+  ctx.lineTo(vX + 64, vY + 7);
+  ctx.lineTo(vX + 64, vY + 17);
+  ctx.closePath();
+  ctx.fill();
+  // side windows
+  ctx.fillRect(vX + 68, vY + 8, 30, 9);
+  ctx.fillRect(vX + 102, vY + 8, 24, 9);
+
+  // Stripe accent (blue)
+  ctx.fillStyle = '#2563eb';
+  ctx.fillRect(vX, vY + 30, vW, 5);
+
+  // Headlights
+  ctx.fillStyle = '#fff9c0';
+  ctx.beginPath();
+  ctx.ellipse(vX + vW - 6, vY + 26, 6, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Taillights
+  ctx.fillStyle = '#ff3322';
+  ctx.beginPath();
+  ctx.ellipse(vX + 6, vY + 26, 5, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Wheels
+  for (const wx of [vX + 22, vX + vW - 28]) {
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(wx, vY + vH - 6, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#666';
+    ctx.beginPath();
+    ctx.arc(wx, vY + vH - 6, 8, 0, Math.PI * 2);
+    ctx.fill();
+    // spinning hubcap
+    ctx.save();
+    ctx.translate(wx, vY + vH - 6);
+    ctx.rotate(frameCount * 0.12);
+    ctx.strokeStyle = '#999';
+    ctx.lineWidth = 1.5;
+    for (let s = 0; s < 4; s++) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(s * Math.PI / 2) * 6, Math.sin(s * Math.PI / 2) * 6);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Exhaust puff
+  if (frameCount % 4 === 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.12 + Math.random() * 0.06;
+    ctx.fillStyle = '#aaa';
+    ctx.beginPath();
+    ctx.arc(vX - 8 + Math.random() * 6, vY + vH - 14 + Math.random() * 4, 5 + Math.random() * 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Subtle location label
+  const stopIdx = Math.min(Math.round(progress * (STOPS.length - 1)), STOPS.length - 1);
+  ctx.save();
+  ctx.font = '600 11px "DM Mono", monospace';
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.textAlign = 'left';
+  ctx.fillText('PCH · ' + STOPS[stopIdx].label.toUpperCase(), 18, H - 18);
+  ctx.restore();
+
+  requestAnimationFrame(drawScene);
+}
+requestAnimationFrame(ts => { lastTime = ts; drawScene(ts); });
+
+// ── SCROLL LOGIC ──
+function onScroll() {
+  if (!started) return;
+  const scrollTop = window.scrollY;
+  const docH = document.documentElement.scrollHeight - window.innerHeight;
+  const rawProgress = scrollTop / docH;
+  // only count scroll-driver portion
+  const driver = document.getElementById('scroll-driver');
+  const driverH = driver.offsetHeight;
+  const driverTop = driver.offsetTop;
+  progress = Math.clamp((scrollTop - driverTop) / (driverH - window.innerHeight), 0, 1);
+
+  // Progress bar
+  document.getElementById('progress-bar').style.width = (rawProgress * 100) + '%';
+
+  // Visible section & card activation
+  const sectionH = window.innerHeight;
+  const activeSectionIdx = Math.floor(progress * SECTIONS);
+  
+  cards.forEach((card, i) => {
+    const rect = sections[i].getBoundingClientRect();
+    const inView = rect.top < window.innerHeight * 0.75 && rect.bottom > window.innerHeight * 0.25;
+    if (inView) card.classList.add('visible');
+  });
+
+  navDots.forEach((dot, i) => {
+    dot.classList.toggle('active', i === Math.min(activeSectionIdx, SECTIONS - 1));
+  });
+}
+
+window.addEventListener('scroll', onScroll, {passive: true});
+
+// ── ROUNDRECT POLYFILL ──
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    this.beginPath();
+    this.moveTo(x + r, y);
+    this.lineTo(x + w - r, y);
+    this.quadraticCurveTo(x + w, y, x + w, y + r);
+    this.lineTo(x + w, y + h - r);
+    this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    this.lineTo(x + r, y + h);
+    this.quadraticCurveTo(x, y + h, x, y + h - r);
+    this.lineTo(x, y + r);
+    this.quadraticCurveTo(x, y, x + r, y);
+    this.closePath();
+  };
+}
+</script>
+</body>
+</html>
